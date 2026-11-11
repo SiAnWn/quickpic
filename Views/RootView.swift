@@ -28,12 +28,13 @@ struct RootView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.black.ignoresSafeArea())
+            .background(Theme.backgroundGradient.ignoresSafeArea())
             .navigationTitle("QuickPic")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showNew = true } label: {
                         Image(systemName: "folder.badge.plus")
+                            .foregroundStyle(.white)
                     }
                 }
             }
