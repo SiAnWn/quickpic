@@ -6,7 +6,7 @@ import Foundation
 enum Fuzzy {
     private static func normalize(_ s: String) -> String {
         String(s.lowercased().unicodeScalars
-            .filter { !CharSet.whitespacesAndNewlines.contains($0) })
+            .filter { !CharacterSet.whitespacesAndNewlines.contains($0) })
     }
 
     static func match(_ query: String, _ name: String) -> Bool {
