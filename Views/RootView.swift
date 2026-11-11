@@ -6,32 +6,49 @@ struct RootView: View {
     @State private var showNew = false
     @State private var newName = ""
     @State private var showTheme = false
+    @State private var query = ""
 
     private let columns = [GridItem(.adaptive(minimum: 160), spacing: 14)]
+
+    private var searching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    private var filteredFolders: [FolderInfo] {
+        guard searching else { return store.folders }
+        let q = query
+        return store.folders
+            .filter { Fuzzy.match(q, $0.name) }
+            .sorted { a, b in
+                let sa = Fuzzy.score(q, a.name), sb = Fuzzy.score(q, b.name)
+                if sa != sb { return sa > sb }
+                return a.name.localizedStandardCompare(b.name) == .orderedAscending
+            }
+    }
 
     var body: some View {
         NavigationStack {
             Group {
-                if store.folders.isEmpty {
-                    if store.isScanning {
-                        ProgressView()
-                            .tint(.white)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    } else {
-                        emptyState
-                    }
+                if store.isScanning && store.folders.isEmpty {
+                    ProgressView()
+                        .tint(.white)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if store.folders.isEmpty {
+                    emptyState
+                } else if searching && filteredFolders.isEmpty {
+                    noResults
                 } else {
                     ScrollView {
                         LazyVGrid(columns: columns, spacing: 14) {
-                            NavigationLink(value: PicMode.all) {
-                                allCard
+                            if !searching {
+                                NavigationLink(value: PicMode.all) {
+                                    allCard
+                                }
+                                .buttonStyle(.plain)
+                                NavigationLink(value: PicMode.favorites) {
+                                    favCard
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
-                            NavigationLink(value: PicMode.favorites) {
-                                favCard
-                            }
-                            .buttonStyle(.plain)
-                            ForEach(store.folders) { folder in
+                            ForEach(searching ? filteredFolders : store.folders) { folder in
                                 NavigationLink(value: PicMode.folder(folder)) {
                                     folderCard(folder)
                                 }
@@ -45,6 +62,8 @@ struct RootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(store.theme.backgroundGradient.ignoresSafeArea())
             .navigationTitle("QuickPic")
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
+                        prompt: "搜索文件夹名")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showTheme = true } label: {
@@ -195,6 +214,20 @@ struct RootView: View {
                 .strokeBorder(.white.opacity(0.08), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.35), radius: 6, y: 3)
+    }
+
+    // MARK: 无搜索结果
+
+    private var noResults: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 40))
+                .foregroundStyle(.white.opacity(0.5))
+            Text("没有匹配的文件夹").font(.headline).foregroundStyle(.white)
+            Text("试试别的字，或清空搜索查看全部。")
+                .font(.footnote).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: 空状态
