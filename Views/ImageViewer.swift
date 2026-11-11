@@ -1,13 +1,14 @@
 import SwiftUI
 
-/// 全屏查看器：横向滑动切换图片；顶部常驻「关闭 + 序号」。
-/// 不在 TabView 上盖全屏手势层，否则会挡住左右滑动切换。
+/// 全屏查看器：左右滑动切换；默认无任何界面，单击图片显示/隐藏「关闭 + 序号」。
+/// 单击手势放在每页内容上（子视图），不会挡住 TabView 的左右滑动。
 struct ImageViewer: View {
     @EnvironmentObject private var store: PicStore
     @Environment(\.dismiss) private var dismiss
 
     let startIndex: Int
     @State private var index: Int = 0
+    @State private var showUI = false
 
     var body: some View {
         let images = store.images
@@ -21,15 +22,23 @@ struct ImageViewer: View {
                     ForEach(Array(images.enumerated()), id: \.element.id) { i, item in
                         AsyncThumb(url: item.url, maxPixel: 2200, contentMode: .fit)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                withAnimation(.easeOut(duration: 0.2)) { showUI.toggle() }
+                            }
                             .tag(i)
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .ignoresSafeArea()
 
-                topBar(count: images.count)
+                if showUI {
+                    topBar(count: images.count)
+                        .transition(.opacity)
+                }
             }
         }
+        .statusBarHidden(true)
         .onAppear { index = startIndex }
     }
 
