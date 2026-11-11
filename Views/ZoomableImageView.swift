@@ -46,13 +46,23 @@ struct ZoomableImageView: UIViewRepresentable {
 
     func updateUIView(_ sv: UIScrollView, context: Context) {
         context.coordinator.parent = self
-        context.coordinator.imageView?.image = image
+        guard let iv = context.coordinator.imageView,
+              context.coordinator.lastImage !== image else { return }
+        context.coordinator.lastImage = image
+        sv.setZoomScale(1, animated: false)
+        sv.isScrollEnabled = false
+        iv.frame = sv.bounds
+        UIView.transition(with: iv, duration: 0.22,
+                          options: [.transitionCrossDissolve, .allowUserInteraction]) {
+            iv.image = image
+        }
     }
 
     final class Coordinator: NSObject, UIScrollViewDelegate, UIGestureRecognizerDelegate {
         var parent: ZoomableImageView
         weak var imageView: UIImageView?
         weak var pan: UIPanGestureRecognizer?
+        var lastImage: UIImage?
 
         init(_ parent: ZoomableImageView) { self.parent = parent }
 

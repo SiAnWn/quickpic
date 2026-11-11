@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// 全屏查看器：窗口式翻页（只加载当前+附近，几万张也稳），支持双指缩放/双击缩放；
-/// 左右滑切换、单击显示/隐藏界面。顶栏含关闭 / 序号 / 收藏。
+/// 全屏查看器：单个可缩放视图复用（切换只换图 + 淡入淡出，不重建），
+/// 支持双指缩放 / 双击放大；左右滑切换、单击显示/隐藏界面。
+/// 顶栏含关闭 / 序号 / 收藏。只解码当前及附近，几万张也稳。
 struct ImageViewer: View {
     @EnvironmentObject private var store: PicStore
     @Environment(\.dismiss) private var dismiss
@@ -9,7 +10,7 @@ struct ImageViewer: View {
     let startIndex: Int
     @State private var index: Int = 0
     @State private var showUI = false
-    @State private var goingNext = true
+    @State private var display: UIImage?
 
     private var images: [ImageItem] { store.images }
 
@@ -20,14 +21,13 @@ struct ImageViewer: View {
             if images.isEmpty {
                 Text("没有图片").foregroundStyle(.secondary)
             } else {
-                if let item = images[safe: index] {
-                    ZoomablePage(item: item,
-                                 onSwipe: { go($0) },
-                                 onSingleTap: { withAnimation(.easeOut(duration: 0.2)) { showUI.toggle() } })
-                        .id(item.id)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: goingNext ? .trailing : .leading),
-                            removal: .move(edge: goingNext ? .leading : .trailing)))
+                if let display {
+                    ZoomableImageView(image: display,
+                                      onSwipe: { go($0) },
+                                      onSingleTap: { withAnimation(.easeOut(duration: 0.2)) { showUI.toggle() } })
+                        .ignoresSafeArea()
+                } else if let item = images[safe: index] {
+                    AsyncThumb(url: item.url, maxPixel: 2200, contentMode: .fit)
                         .ignoresSafeArea()
                 }
 
@@ -37,10 +37,13 @@ struct ImageViewer: View {
                 }
             }
         }
-        .clipped()
         .statusBarHidden(true)
         .onAppear {
             index = min(max(startIndex, 0), max(images.count - 1, 0))
+        }
+        .task(id: index) {
+            guard let item = images[safe: index] else { return }
+            if let img = await loadFull(item.url) { display = img }
             warm()
         }
     }
@@ -48,9 +51,7 @@ struct ImageViewer: View {
     private func go(_ dir: Int) {
         let new = index + dir
         guard new >= 0, new < images.count else { return }
-        goingNext = dir > 0
-        withAnimation(.easeOut(duration: 0.28)) { index = new }
-        warm()
+        index = new
     }
 
     private func warm() {
