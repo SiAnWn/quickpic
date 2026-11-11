@@ -9,25 +9,30 @@ struct FolderView: View {
     @State private var showSlideshow = false
     @State private var showSettings = false
 
-    private let columns = [GridItem(.adaptive(minimum: 72), spacing: 3)]
-
     var body: some View {
         Group {
             if store.images.isEmpty {
                 emptyText
             } else {
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 3) {
-                        ForEach(store.images) { item in
-                            Button { selected = item } label: {
-                                AsyncThumb(url: item.url, maxPixel: 300)
-                                    .aspectRatio(1, contentMode: .fit)
-                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                GeometryReader { geo in
+                    let cols = max(4, Int(geo.size.width / 64))
+                    let spacing: CGFloat = 3
+                    let pad: CGFloat = 3
+                    let cw = (geo.size.width - pad * 2 - spacing * CGFloat(cols - 1)) / CGFloat(cols)
+                    ScrollView {
+                        LazyVGrid(columns: Array(repeating: GridItem(.fixed(cw), spacing: spacing), count: cols),
+                                  spacing: spacing) {
+                            ForEach(store.images) { item in
+                                Button { selected = item } label: {
+                                    AsyncThumb(url: item.url, maxPixel: 300, contentMode: .fill)
+                                        .frame(width: cw, height: cw)
+                                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
+                        .padding(pad)
                     }
-                    .padding(3)
                 }
             }
         }

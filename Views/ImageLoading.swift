@@ -50,6 +50,7 @@ struct AsyncThumb: View {
                     .aspectRatio(contentMode: contentMode)
             }
         }
+        .clipped()
         .task(id: "\(url.path)|\(maxPixel)") {
             let u = url, mp = maxPixel
             if let hit = ThumbCache.shared.get(u, mp) { image = hit; return }
