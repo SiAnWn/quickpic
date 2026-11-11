@@ -31,6 +31,7 @@ final class PicStore: ObservableObject {
     @Published var folders: [FolderInfo] = []
     @Published var images: [ImageItem] = []
     @Published var currentFolder: FolderInfo? = nil
+    @Published var isScanning = false
 
     @Published var slideshowMode: SlideshowMode = .random { didSet { saveSettings() } }
     @Published var interval: Double = 3.0 { didSet { saveSettings() } }
@@ -40,7 +41,7 @@ final class PicStore: ObservableObject {
     let intervalChoices: [Double] = [1, 2, 3, 5, 8]
 
     private let fm = FileManager.default
-    private let imageExts: Set<String> = ["jpg", "jpeg", "png", "heic", "heif", "webp", "gif", "bmp", "tiff", "tif"]
+    private static let imageExts: Set<String> = ["jpg", "jpeg", "png", "heic", "heif", "webp", "gif", "bmp", "tiff", "tif"]
 
     var documentsURL: URL {
         fm.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -75,7 +76,7 @@ final class PicStore: ObservableObject {
 
     // MARK: 图片识别
 
-    private func isImage(_ url: URL, contentType: UTType?) -> Bool {
+    private static func isImage(_ url: URL, contentType: UTType?) -> Bool {
         if let ct = contentType, ct.conforms(to: .image) { return true }
         return imageExts.contains(url.pathExtension.lowercased())
     }
@@ -94,32 +95,39 @@ final class PicStore: ObservableObject {
 
     func scanFolders() {
         ensureDocuments()
-        let keys: [URLResourceKey] = [.isDirectoryKey]
-        var result: [FolderInfo] = []
-        if let items = try? fm.contentsOfDirectory(at: documentsURL,
-                                                  includingPropertiesForKeys: keys,
-                                                  options: [.skipsHiddenFiles]) {
-            for url in items where (try? url.resourceValues(forKeys: Set(keys)))?.isDirectory == true {
-                result.append(FolderInfo(url: url, name: url.lastPathComponent,
-                                         coverURL: firstImageURL(in: url)))
+        isScanning = true
+        let docs = documentsURL
+        Task.detached(priority: .userInitiated) { [weak self] in
+            let fm = FileManager.default
+            let keys: [URLResourceKey] = [.isDirectoryKey]
+            var result: [FolderInfo] = []
+            if let items = try? fm.contentsOfDirectory(at: docs,
+                                                      includingPropertiesForKeys: keys,
+                                                      options: [.skipsHiddenFiles]) {
+                for url in items where (try? url.resourceValues(forKeys: Set(keys)))?.isDirectory == true {
+                    result.append(FolderInfo(url: url, name: url.lastPathComponent,
+                                             coverURL: Self.firstImageURL(in: url)))
+                }
+            }
+            result.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            Task { @MainActor in
+                self?.folders = result
+                self?.isScanning = false
             }
         }
-        result.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        folders = result
     }
 
-    /// 文件夹里第一张图片（按名称排序），用作封面。
-    private func firstImageURL(in dir: URL) -> URL? {
+    /// 文件夹里第一张图片（找到即返回，尽量少读目录），用作封面。后台调用。
+    private static func firstImageURL(in dir: URL) -> URL? {
+        let fm = FileManager.default
         let keys: [URLResourceKey] = [.contentTypeKey, .isRegularFileKey]
         guard let items = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: keys,
                                                      options: [.skipsHiddenFiles]) else { return nil }
-        var imgs: [URL] = []
         for url in items {
             let v = try? url.resourceValues(forKeys: Set(keys))
-            if v?.isRegularFile == true, isImage(url, contentType: v?.contentType) { imgs.append(url) }
+            if v?.isRegularFile == true, isImage(url, contentType: v?.contentType) { return url }
         }
-        imgs.sort { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
-        return imgs.first
+        return nil
     }
 
     func createFolder(_ name: String) {
@@ -146,7 +154,7 @@ final class PicStore: ObservableObject {
             for url in items {
                 let v = try? url.resourceValues(forKeys: Set(keys))
                 guard v?.isRegularFile == true else { continue }
-                if isImage(url, contentType: v?.contentType) {
+                if Self.isImage(url, contentType: v?.contentType) {
                     result.append(ImageItem(url: url, name: url.deletingPathExtension().lastPathComponent))
                 }
             }

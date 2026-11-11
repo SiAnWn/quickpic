@@ -13,7 +13,13 @@ struct RootView: View {
         NavigationStack {
             Group {
                 if store.folders.isEmpty {
-                    emptyState
+                    if store.isScanning {
+                        ProgressView()
+                            .tint(.white)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        emptyState
+                    }
                 } else {
                     ScrollView {
                         LazyVGrid(columns: columns, spacing: 14) {
