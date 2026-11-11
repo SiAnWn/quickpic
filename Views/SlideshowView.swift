@@ -114,24 +114,14 @@ struct SlideshowView: View {
         warmAhead()
     }
 
-    /// 预解码接下来 2 张写入缓存，切换时直接命中，过渡更顺、不闪。
+    /// 预解码接下来 2 张（内存/磁盘缓存），切换时直接命中，过渡更顺、不闪。
     private func warmAhead() {
         let n = order.count
         guard n > 0 else { return }
         for k in 1...2 {
             let p = (pos + k) % n
             guard let idx = order[safe: p], let item = store.images[safe: idx] else { continue }
-            warm(item.url)
-        }
-    }
-
-    private func warm(_ url: URL) {
-        if ThumbCache.shared.get(url, 2200) != nil { return }
-        Task {
-            let img = await Task.detached(priority: .utility) {
-                PicLoader.image(url: url, maxPixel: 2200)
-            }.value
-            if let img { ThumbCache.shared.set(url, 2200, img) }
+            warmImage(item.url, maxPixel: 2200)
         }
     }
 }

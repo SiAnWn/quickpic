@@ -9,21 +9,39 @@ struct FolderView: View {
     @State private var showSlideshow = false
     @State private var showSettings = false
 
-    private var isAll: Bool { if case .all = mode { return true }; return false }
     private var folderName: String {
-        if case .folder(let f) = mode { return f.name }
-        return "全部"
+        switch mode {
+        case .all: return "全部"
+        case .favorites: return "收藏"
+        case .folder(let f): return f.name
+        }
     }
     private func load() {
         switch mode {
         case .all: store.openAll()
+        case .favorites: store.openFavorites()
         case .folder(let f): store.openFolder(f)
         }
     }
     private func reload() {
         switch mode {
         case .all: store.openAll()
+        case .favorites: store.openFavorites()
         case .folder: store.refreshCurrent()
+        }
+    }
+    private var emptyTitle: String {
+        switch mode {
+        case .all: return "还没有任何图片"
+        case .favorites: return "还没有收藏"
+        case .folder: return "这个文件夹还没有图片"
+        }
+    }
+    private var emptyBody: String {
+        switch mode {
+        case .all: return "先用「文件」App 往各子文件夹里放图片，\n回到这里下拉即可刷新。"
+        case .favorites: return "看大图时点右上角 ♡ 收藏，\n收藏的图片会集中显示在这里。"
+        case .folder(let f): return "用「文件」App 把图片放进「\(f.name)」，\n回到这里下拉即可刷新。"
         }
     }
 
@@ -135,10 +153,8 @@ struct FolderView: View {
                     .font(.system(size: 40))
                     .foregroundStyle(store.theme.gradient)
             }
-            Text(isAll ? "还没有任何图片" : "这个文件夹还没有图片").font(.headline)
-            Text(isAll
-                 ? "先用「文件」App 往各子文件夹里放图片，\n回到这里下拉即可刷新。"
-                 : "用「文件」App 把图片放进「\(folderName)」，\n回到这里下拉即可刷新。")
+            Text(emptyTitle).font(.headline)
+            Text(emptyBody)
                 .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .padding(30)

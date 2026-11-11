@@ -37,6 +37,7 @@ final class PicStore: ObservableObject {
     @Published var interval: Double = 3.0 { didSet { saveSettings() } }
     @Published var transition: SlideTransition = .fade { didSet { saveSettings() } }
     @Published var theme: AppTheme = .bluePink { didSet { saveSettings() } }
+    @Published var favorites: Set<String> = []
 
     let intervalChoices: [Double] = [1, 2, 3, 5, 8]
 
@@ -57,7 +58,7 @@ final class PicStore: ObservableObject {
 
     private struct Settings: Codable { var mode: String; var interval: Double; var transition: String; var theme: String }
 
-    init() { loadSettings() }
+    init() { loadSettings(); loadFavorites() }
 
     private func loadSettings() {
         if let data = try? Data(contentsOf: settingsURL),
@@ -72,6 +73,34 @@ final class PicStore: ObservableObject {
     private func saveSettings() {
         let s = Settings(mode: slideshowMode.rawValue, interval: interval, transition: transition.rawValue, theme: theme.rawValue)
         if let data = try? JSONEncoder().encode(s) { try? data.write(to: settingsURL) }
+    }
+
+    // MARK: 收藏
+
+    private var favoritesURL: URL {
+        let dir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("favorites.json")
+    }
+
+    private func loadFavorites() {
+        if let data = try? Data(contentsOf: favoritesURL),
+           let arr = try? JSONDecoder().decode([String].self, from: data) {
+            favorites = Set(arr)
+        }
+    }
+
+    private func saveFavorites() {
+        if let data = try? JSONEncoder().encode(Array(favorites)) {
+            try? data.write(to: favoritesURL)
+        }
+    }
+
+    func isFavorite(_ id: String) -> Bool { favorites.contains(id) }
+
+    func toggleFavorite(_ id: String) {
+        if favorites.contains(id) { favorites.remove(id) } else { favorites.insert(id) }
+        saveFavorites()
     }
 
     // MARK: 图片识别
@@ -151,31 +180,46 @@ final class PicStore: ObservableObject {
         isScanning = true
         let docs = documentsURL
         Task.detached(priority: .userInitiated) { [weak self] in
-            let fm = FileManager.default
-            let dirKeys: [URLResourceKey] = [.isDirectoryKey]
-            let imgKeys: [URLResourceKey] = [.contentTypeKey, .isRegularFileKey]
-            var result: [ImageItem] = []
-            if let subs = try? fm.contentsOfDirectory(at: docs, includingPropertiesForKeys: dirKeys,
-                                                     options: [.skipsHiddenFiles]) {
-                for sub in subs where (try? sub.resourceValues(forKeys: Set(dirKeys)))?.isDirectory == true {
-                    if let items = try? fm.contentsOfDirectory(at: sub, includingPropertiesForKeys: imgKeys,
-                                                              options: [.skipsHiddenFiles]) {
-                        for url in items {
-                            let v = try? url.resourceValues(forKeys: Set(imgKeys))
-                            if v?.isRegularFile == true, Self.isImage(url, contentType: v?.contentType) {
-                                result.append(ImageItem(url: url,
-                                            name: url.deletingPathExtension().lastPathComponent))
-                            }
+            let result = Self.collectAllImages(docs: docs)
+            Task { @MainActor in self?.images = result; self?.isScanning = false }
+        }
+    }
+
+    func openFavorites() {
+        currentFolder = nil
+        isScanning = true
+        let docs = documentsURL
+        let fav = favorites
+        Task.detached(priority: .userInitiated) { [weak self] in
+            let all = Self.collectAllImages(docs: docs)
+            let result = all.filter { fav.contains($0.id) }
+            Task { @MainActor in self?.images = result; self?.isScanning = false }
+        }
+    }
+
+    /// 汇总所有子文件夹的图片（后台调用）。
+    private static func collectAllImages(docs: URL) -> [ImageItem] {
+        let fm = FileManager.default
+        let dirKeys: [URLResourceKey] = [.isDirectoryKey]
+        let imgKeys: [URLResourceKey] = [.contentTypeKey, .isRegularFileKey]
+        var result: [ImageItem] = []
+        if let subs = try? fm.contentsOfDirectory(at: docs, includingPropertiesForKeys: dirKeys,
+                                                 options: [.skipsHiddenFiles]) {
+            for sub in subs where (try? sub.resourceValues(forKeys: Set(dirKeys)))?.isDirectory == true {
+                if let items = try? fm.contentsOfDirectory(at: sub, includingPropertiesForKeys: imgKeys,
+                                                          options: [.skipsHiddenFiles]) {
+                    for url in items {
+                        let v = try? url.resourceValues(forKeys: Set(imgKeys))
+                        if v?.isRegularFile == true, isImage(url, contentType: v?.contentType) {
+                            result.append(ImageItem(url: url,
+                                        name: url.deletingPathExtension().lastPathComponent))
                         }
                     }
                 }
             }
-            result.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-            Task { @MainActor in
-                self?.images = result
-                self?.isScanning = false
-            }
         }
+        result.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        return result
     }
 
     func scanImages(in dir: URL) {

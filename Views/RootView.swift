@@ -27,6 +27,10 @@ struct RootView: View {
                                 allCard
                             }
                             .buttonStyle(.plain)
+                            NavigationLink(value: PicMode.favorites) {
+                                favCard
+                            }
+                            .buttonStyle(.plain)
                             ForEach(store.folders) { folder in
                                 NavigationLink(value: PicMode.folder(folder)) {
                                     folderCard(folder)
@@ -120,6 +124,30 @@ struct RootView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("全部").font(.headline).foregroundStyle(.white)
                 Text("浏览所有图片").font(.caption).foregroundStyle(.white.opacity(0.85))
+            }
+            .padding(12)
+        }
+        .frame(height: 150)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(.white.opacity(0.12)))
+        .shadow(color: .black.opacity(0.35), radius: 6, y: 3)
+    }
+
+    // MARK: 「收藏」卡片
+
+    private var favCard: some View {
+        ZStack(alignment: .bottomLeading) {
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(red: 0.98, green: 0.29, blue: 0.55))
+            Image(systemName: "heart.fill")
+                .font(.system(size: 40))
+                .foregroundStyle(.white.opacity(0.95))
+                .frame(maxWidth: .infinity, maxHeight: 150)
+            LinearGradient(colors: [.clear, .black.opacity(0.5)],
+                           startPoint: .center, endPoint: .bottom)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("收藏").font(.headline).foregroundStyle(.white)
+                Text("\(store.favorites.count) 张").font(.caption).foregroundStyle(.white.opacity(0.9))
             }
             .padding(12)
         }

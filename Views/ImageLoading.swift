@@ -32,6 +32,40 @@ final class ThumbCache {
     }
 }
 
+/// 预热一张图（内存→磁盘→解码），供查看器/幻灯片提前加载相邻图。
+@MainActor
+func warmImage(_ url: URL, maxPixel: Int) {
+    if ThumbCache.shared.get(url, maxPixel) != nil { return }
+    Task.detached(priority: .utility) {
+        let k = DiskThumb.key(url, maxPixel)
+        if let d = DiskThumb.load(k) {
+            await MainActor.run { ThumbCache.shared.set(url, maxPixel, d) }
+            return
+        }
+        if let img = PicLoader.image(url: url, maxPixel: maxPixel) {
+            DiskThumb.save(img, k)
+            await MainActor.run { ThumbCache.shared.set(url, maxPixel, img) }
+        }
+    }
+}
+
+/// 加载一张完整图（内存→磁盘→解码），返回 UIImage。
+@MainActor
+func loadFull(_ url: URL, maxPixel: Int = 2200) async -> UIImage? {
+    if let c = ThumbCache.shared.get(url, maxPixel) { return c }
+    let img = await Task.detached(priority: .userInitiated) { () -> UIImage? in
+        let k = DiskThumb.key(url, maxPixel)
+        if let d = DiskThumb.load(k) { return d }
+        if let decoded = PicLoader.image(url: url, maxPixel: maxPixel) {
+            DiskThumb.save(decoded, k)
+            return decoded
+        }
+        return nil
+    }.value
+    if let img { ThumbCache.shared.set(url, maxPixel, img) }
+    return img
+}
+
 /// 异步加载并显示一张图片（网格用 .fill 裁切填充，全屏用 .fit 完整显示）。
 struct AsyncThumb: View {
     let url: URL
@@ -54,8 +88,14 @@ struct AsyncThumb: View {
         .task(id: "\(url.path)|\(maxPixel)") {
             let u = url, mp = maxPixel
             if let hit = ThumbCache.shared.get(u, mp) { image = hit; return }
-            let img = await Task.detached(priority: .userInitiated) {
-                PicLoader.image(url: u, maxPixel: mp)
+            let img = await Task.detached(priority: .userInitiated) { () -> UIImage? in
+                let k = DiskThumb.key(u, mp)
+                if let d = DiskThumb.load(k) { return d }
+                if let decoded = PicLoader.image(url: u, maxPixel: mp) {
+                    DiskThumb.save(decoded, k)
+                    return decoded
+                }
+                return nil
             }.value
             if let img {
                 ThumbCache.shared.set(u, mp, img)
