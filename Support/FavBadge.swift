@@ -11,7 +11,7 @@ struct FavBadge: View {
             .font(.system(size: 20, weight: .semibold))
             .foregroundStyle(Color(red: 0.98, green: 0.29, blue: 0.55))
             .padding(9)
-            .background(.black.opacity(0.32), in: Circle())
+            .glassOr(in: Circle(), fallback: Color.black.opacity(0.32))
             .scaleEffect(scale)
             .opacity(opacity)
             .onAppear {

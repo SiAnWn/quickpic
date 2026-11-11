@@ -57,7 +57,7 @@ struct SlideshowView: View {
                             .font(.callout.monospacedDigit())
                             .foregroundStyle(.white)
                             .padding(.horizontal, 12).padding(.vertical, 6)
-                            .background(.black.opacity(0.45), in: Capsule())
+                            .glassOr(in: Capsule(), fallback: Color.black.opacity(0.45))
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 6)
@@ -99,7 +99,7 @@ struct SlideshowView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
-                .background(.black.opacity(0.45), in: Circle())
+                .glassOr(in: Circle(), fallback: Color.black.opacity(0.45))
         }
     }
 

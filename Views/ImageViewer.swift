@@ -62,7 +62,7 @@ struct ImageViewer: View {
                 }
                 .font(.callout)
                 .padding(.horizontal, 16).padding(.vertical, 10)
-                .background(.black.opacity(0.72), in: Capsule())
+                .glassOr(in: Capsule(), fallback: Color.black.opacity(0.72))
                 .padding(.bottom, 40)
                 .transition(.opacity)
             }
@@ -122,7 +122,7 @@ struct ImageViewer: View {
                 .font(.callout.monospacedDigit())
                 .foregroundStyle(.white)
                 .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(.black.opacity(0.45), in: Capsule())
+                .glassOr(in: Capsule(), fallback: Color.black.opacity(0.45))
             Spacer()
         }
         .padding(.horizontal, 16)
