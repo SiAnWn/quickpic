@@ -98,11 +98,26 @@ final class PicStore: ObservableObject {
                                                   includingPropertiesForKeys: keys,
                                                   options: [.skipsHiddenFiles]) {
             for url in items where (try? url.resourceValues(forKeys: Set(keys)))?.isDirectory == true {
-                result.append(FolderInfo(url: url, name: url.lastPathComponent))
+                result.append(FolderInfo(url: url, name: url.lastPathComponent,
+                                         coverURL: firstImageURL(in: url)))
             }
         }
         result.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         folders = result
+    }
+
+    /// 文件夹里第一张图片（按名称排序），用作封面。
+    private func firstImageURL(in dir: URL) -> URL? {
+        let keys: [URLResourceKey] = [.contentTypeKey, .isRegularFileKey]
+        guard let items = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: keys,
+                                                     options: [.skipsHiddenFiles]) else { return nil }
+        var imgs: [URL] = []
+        for url in items {
+            let v = try? url.resourceValues(forKeys: Set(keys))
+            if v?.isRegularFile == true, isImage(url, contentType: v?.contentType) { imgs.append(url) }
+        }
+        imgs.sort { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+        return imgs.first
     }
 
     func createFolder(_ name: String) {

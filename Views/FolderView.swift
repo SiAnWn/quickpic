@@ -26,7 +26,7 @@ struct FolderView: View {
                                 Button { selected = item } label: {
                                     AsyncThumb(url: item.url, maxPixel: 300, contentMode: .fill)
                                         .frame(width: cw, height: cw)
-                                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                                        .clipShape(RoundedRectangle(cornerRadius: 6))
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -110,12 +110,18 @@ struct FolderView: View {
     }
 
     private var emptyText: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "photo.stack").font(.system(size: 48)).foregroundStyle(.secondary)
-            Text("这个文件夹还没有图片").foregroundStyle(.secondary)
-            Text("用「文件」App 把图片放进「\(folder.name)」，下拉可刷新。")
+        VStack(spacing: 16) {
+            ZStack {
+                Circle().fill(Theme.gradient.opacity(0.14)).frame(width: 96, height: 96)
+                Image(systemName: "photo.on.rectangle.angled")
+                    .font(.system(size: 40))
+                    .foregroundStyle(Theme.gradient)
+            }
+            Text("这个文件夹还没有图片").font(.headline)
+            Text("用「文件」App 把图片放进「\(folder.name)」，\n回到这里下拉即可刷新。")
                 .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .padding(30)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

@@ -11,5 +11,6 @@ struct ImageItem: Identifiable, Hashable {
 struct FolderInfo: Identifiable, Hashable {
     let url: URL
     let name: String
+    var coverURL: URL? = nil
     var id: String { url.path }
 }
