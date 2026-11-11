@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// 全屏查看器：单个可缩放视图复用（切换只换图 + 淡入淡出，不重建），
-/// 支持双指缩放 / 双击放大；左右滑切换、单击显示/隐藏界面。
-/// 顶栏含关闭 / 序号 / 收藏。只解码当前及附近，几万张也稳。
+/// 全屏查看器：复用单个可缩放视图（切换只换图 + 淡入淡出，流畅且省内存）。
+/// 双指/双击缩放；左右滑切换；下滑退出；单击显示序号；长按收藏（可撤销）。
+/// 浏览到收藏图时右上角显示轻度心形特效。
 struct ImageViewer: View {
     @EnvironmentObject private var store: PicStore
     @Environment(\.dismiss) private var dismiss
@@ -11,6 +11,9 @@ struct ImageViewer: View {
     @State private var index: Int = 0
     @State private var showUI = false
     @State private var display: UIImage?
+    @State private var toast: String?
+    @State private var toastUndo: (() -> Void)?
+    @State private var toastGen = 0
 
     private var images: [ImageItem] { store.images }
 
@@ -24,7 +27,9 @@ struct ImageViewer: View {
                 if let display {
                     ZoomableImageView(image: display,
                                       onSwipe: { go($0) },
-                                      onSingleTap: { withAnimation(.easeOut(duration: 0.2)) { showUI.toggle() } })
+                                      onSingleTap: { withAnimation(.easeOut(duration: 0.2)) { showUI.toggle() } },
+                                      onLongPress: { toggleFavorite() },
+                                      onSwipeDown: { dismiss() })
                         .ignoresSafeArea()
                 } else if let item = images[safe: index] {
                     AsyncThumb(url: item.url, maxPixel: 2200, contentMode: .fit)
@@ -38,6 +43,30 @@ struct ImageViewer: View {
             }
         }
         .statusBarHidden(true)
+        .overlay(alignment: .bottomTrailing) {
+            // 收藏特效（轻度）
+            if let item = images[safe: index], store.isFavorite(item.id) {
+                FavBadge()
+                    .id(item.id)
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 24)
+                    .allowsHitTesting(false)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if let toast {
+                HStack(spacing: 12) {
+                    Text(toast).foregroundStyle(.white)
+                    Button("撤销") { toastUndo?(); hideToast() }
+                        .foregroundStyle(store.theme.accent)
+                }
+                .font(.callout)
+                .padding(.horizontal, 16).padding(.vertical, 10)
+                .background(.black.opacity(0.72), in: Capsule())
+                .padding(.bottom, 40)
+                .transition(.opacity)
+            }
+        }
         .onAppear {
             index = min(max(startIndex, 0), max(images.count - 1, 0))
         }
@@ -60,15 +89,34 @@ struct ImageViewer: View {
         }
     }
 
+    private func toggleFavorite() {
+        guard let item = images[safe: index] else { return }
+        let was = store.isFavorite(item.id)
+        store.toggleFavorite(item.id)
+        showToast(was ? "已取消收藏" : "已收藏", undo: { store.toggleFavorite(item.id) })
+    }
+
+    private func showToast(_ text: String, undo: @escaping () -> Void) {
+        toastGen += 1
+        let my = toastGen
+        withAnimation(.easeOut(duration: 0.2)) { toast = text; toastUndo = undo }
+        Task {
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            await MainActor.run {
+                if my == toastGen {
+                    withAnimation(.easeIn(duration: 0.2)) { toast = nil; toastUndo = nil }
+                }
+            }
+        }
+    }
+
+    private func hideToast() {
+        toastGen += 1
+        withAnimation(.easeIn(duration: 0.15)) { toast = nil; toastUndo = nil }
+    }
+
     private func topBar(count: Int) -> some View {
         HStack {
-            Button { dismiss() } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 36, height: 36)
-                    .background(.black.opacity(0.45), in: Circle())
-            }
             Spacer()
             Text("\(min(index + 1, count)) / \(count)")
                 .font(.callout.monospacedDigit())
@@ -76,15 +124,6 @@ struct ImageViewer: View {
                 .padding(.horizontal, 12).padding(.vertical, 6)
                 .background(.black.opacity(0.45), in: Capsule())
             Spacer()
-            if let item = images[safe: index] {
-                Button { store.toggleFavorite(item.id) } label: {
-                    Image(systemName: store.isFavorite(item.id) ? "heart.fill" : "heart")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(store.isFavorite(item.id) ? Color(red: 0.98, green: 0.29, blue: 0.55) : .white)
-                        .frame(width: 36, height: 36)
-                        .background(.black.opacity(0.45), in: Circle())
-                }
-            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 6)

@@ -67,6 +67,16 @@ struct SlideshowView: View {
             }
         }
         .clipped()
+        .overlay(alignment: .bottomTrailing) {
+            // 收藏特效（轻度）：播放到收藏图时右下角显示心形
+            if let idx = order[safe: pos], let item = store.images[safe: idx], store.isFavorite(item.id) {
+                FavBadge()
+                    .id(item.id)
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 24)
+                    .allowsHitTesting(false)
+            }
+        }
         .statusBarHidden(!showUI)
         .onAppear { if order.isEmpty { buildOrder() } }
         .task(id: taskID) {

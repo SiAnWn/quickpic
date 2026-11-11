@@ -2,13 +2,15 @@ import SwiftUI
 import UIKit
 
 /// 可缩放图片视图（UIScrollView）：
-/// - 双指缩放；放大后可拖动查看；双击在 1× 与 2.5× 间切换；
-/// - 未缩放时左右滑 → onSwipe(±1) 切换图片；
-/// - 单击 → onSingleTap（显示/隐藏界面）。
+/// - 双指缩放；放大后可拖动；双击在 1× 与 2.5× 间切换；
+/// - 未缩放时：左右滑 → onSwipe(±1) 切换；下滑 → onSwipeDown 退出；
+/// - 单击 → onSingleTap（显示/隐藏界面）；长按 → onLongPress（收藏）。
 struct ZoomableImageView: UIViewRepresentable {
     let image: UIImage
     var onSwipe: (Int) -> Void
     var onSingleTap: () -> Void
+    var onLongPress: () -> Void
+    var onSwipeDown: () -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -19,7 +21,7 @@ struct ZoomableImageView: UIViewRepresentable {
         sv.maximumZoomScale = 4
         sv.showsHorizontalScrollIndicator = false
         sv.showsVerticalScrollIndicator = false
-        sv.isScrollEnabled = false          // 1× 时不平移，滑动用于切换；放大后由 didZoom 打开
+        sv.isScrollEnabled = false          // 1× 时不平移；放大后由 didZoom 打开
         sv.delegate = context.coordinator
 
         let iv = UIImageView()
@@ -35,6 +37,10 @@ struct ZoomableImageView: UIViewRepresentable {
         single.require(toFail: double)
         sv.addGestureRecognizer(single)
         sv.addGestureRecognizer(double)
+
+        let lp = UILongPressGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.onLongPress(_:)))
+        lp.minimumPressDuration = 0.4
+        sv.addGestureRecognizer(lp)
 
         let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.onPan(_:)))
         pan.delegate = context.coordinator
@@ -74,6 +80,11 @@ struct ZoomableImageView: UIViewRepresentable {
 
         @objc func onSingleTap() { parent.onSingleTap() }
 
+        @objc func onLongPress(_ g: UILongPressGestureRecognizer) {
+            guard g.state == .began else { return }
+            parent.onLongPress()
+        }
+
         @objc func onDoubleTap(_ g: UITapGestureRecognizer) {
             guard let sv = g.view as? UIScrollView else { return }
             if sv.zoomScale > 1.01 {
@@ -89,42 +100,23 @@ struct ZoomableImageView: UIViewRepresentable {
         @objc func onPan(_ g: UIPanGestureRecognizer) {
             guard g.state == .ended else { return }
             let t = g.translation(in: g.view)
-            if t.x < -60 { parent.onSwipe(1) }
-            else if t.x > 60 { parent.onSwipe(-1) }
+            if abs(t.x) > abs(t.y) {
+                if t.x < -60 { parent.onSwipe(1) }
+                else if t.x > 60 { parent.onSwipe(-1) }
+            } else if t.y > 80 {
+                parent.onSwipeDown()
+            }
         }
 
-        // 只在"未缩放 + 横向为主"时接管滑动；放大后交回 scrollView 平移
+        // 只在"未缩放 + 横向 或 向下"时接管；放大后交回 scrollView 平移
         func gestureRecognizerShouldBegin(_ gr: UIGestureRecognizer) -> Bool {
             guard gr === pan else { return true }
             guard let p = gr as? UIPanGestureRecognizer, let sv = p.view as? UIScrollView else { return false }
             if sv.zoomScale > 1.01 { return false }
             let v = p.velocity(in: sv)
-            return abs(v.x) > abs(v.y) * 1.2
-        }
-    }
-}
-
-/// 一页可缩放图片：自行异步加载（命中缓存即时显示），加载前用占位图。
-struct ZoomablePage: View {
-    let item: ImageItem
-    var onSwipe: (Int) -> Void
-    var onSingleTap: () -> Void
-
-    @State private var image: UIImage?
-
-    var body: some View {
-        ZStack {
-            Color.black
-            if let image {
-                ZoomableImageView(image: image, onSwipe: onSwipe, onSingleTap: onSingleTap)
-                    .ignoresSafeArea()
-            } else {
-                AsyncThumb(url: item.url, maxPixel: 2200, contentMode: .fit)
-                    .ignoresSafeArea()
-            }
-        }
-        .task(id: item.id) {
-            image = await loadFull(item.url)
+            if abs(v.x) > abs(v.y) * 1.2 { return true }
+            if v.y > 0 && abs(v.y) > abs(v.x) * 1.2 { return true }
+            return false
         }
     }
 }
