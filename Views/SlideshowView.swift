@@ -17,7 +17,7 @@ struct SlideshowView: View {
     private var trans: AnyTransition {
         switch store.transition {
         case .fade:  return .opacity
-        case .slide: return .asymmetric(insert: .move(edge: .trailing), remove: .move(edge: .leading))
+        case .slide: return .asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading))
         case .zoom:  return .scale(scale: 1.08).combined(with: .opacity)
         case .none:  return .identity
         }
