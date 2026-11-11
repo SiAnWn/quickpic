@@ -144,8 +144,6 @@ struct RootView: View {
                 Text("全部").font(.headline).foregroundStyle(.white)
                 Text("浏览所有图片").font(.caption).foregroundStyle(.white.opacity(0.85))
             }
-            .padding(.horizontal, 12).padding(.vertical, 8)
-            .glassOr(in: RoundedRectangle(cornerRadius: 12), fallback: Color.clear)
             .padding(12)
         }
         .frame(height: 150)
@@ -170,8 +168,6 @@ struct RootView: View {
                 Text("收藏").font(.headline).foregroundStyle(.white)
                 Text("\(store.favorites.count) 张").font(.caption).foregroundStyle(.white.opacity(0.9))
             }
-            .padding(.horizontal, 12).padding(.vertical, 8)
-            .glassOr(in: RoundedRectangle(cornerRadius: 12), fallback: Color.clear)
             .padding(12)
         }
         .frame(height: 150)
@@ -205,12 +201,10 @@ struct RootView: View {
                            startPoint: .center, endPoint: .bottom)
 
             Text(folder.name)
-                .font(.subheadline).bold()
+                .font(.headline)
                 .foregroundStyle(.white)
                 .lineLimit(1)
-                .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
-                .padding(.horizontal, 10).padding(.vertical, 6)
-                .glassOr(in: Capsule(), fallback: Color.clear)
+                .shadow(color: .black.opacity(0.6), radius: 3, y: 1)
                 .padding(12)
         }
         .frame(height: 150)
@@ -256,7 +250,7 @@ struct RootView: View {
                 Label("新建文件夹", systemImage: "folder.badge.plus")
                     .font(.headline)
                     .padding(.horizontal, 20).padding(.vertical, 12)
-                    .glassOr(in: Capsule(), fallback: store.theme.gradient)
+                    .background(store.theme.gradient, in: Capsule())
                     .foregroundStyle(.white)
             }
             .buttonStyle(.plain)
