@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 全屏幻灯片：按所选方式(顺序/随机)与间隔自动播放，循环；可暂停/停止。
+/// 全屏幻灯片：按所选方式(顺序/随机)、间隔、过渡自动播放，循环；可暂停/停止。
 struct SlideshowView: View {
     @EnvironmentObject private var store: PicStore
     @Environment(\.dismiss) private var dismiss
@@ -10,7 +10,25 @@ struct SlideshowView: View {
     @State private var showUI = true
     @State private var paused = false
 
-    private var taskID: String { "\(store.interval)-\(paused)-\(store.slideshowMode.rawValue)" }
+    private var taskID: String {
+        "\(store.interval)-\(paused)-\(store.slideshowMode.rawValue)-\(store.transition.rawValue)"
+    }
+
+    private var trans: AnyTransition {
+        switch store.transition {
+        case .fade:  return .opacity
+        case .slide: return .asymmetric(insert: .move(edge: .trailing), remove: .move(edge: .leading))
+        case .zoom:  return .scale(scale: 1.08).combined(with: .opacity)
+        case .none:  return .identity
+        }
+    }
+
+    private var anim: Animation {
+        switch store.transition {
+        case .none: return .linear(duration: 0.01)
+        default:    return .easeInOut(duration: 0.8)
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -19,7 +37,7 @@ struct SlideshowView: View {
             if let idx = order[safe: pos], let item = store.images[safe: idx] {
                 AsyncThumb(url: item.url, maxPixel: 2200, contentMode: .fit)
                     .id(item.id)
-                    .transition(.opacity)
+                    .transition(trans)
                     .ignoresSafeArea()
             }
 
@@ -48,6 +66,7 @@ struct SlideshowView: View {
                 .transition(.opacity)
             }
         }
+        .clipped()
         .statusBarHidden(!showUI)
         .onAppear { if order.isEmpty { buildOrder() } }
         .task(id: taskID) {
@@ -81,15 +100,38 @@ struct SlideshowView: View {
         if store.slideshowMode == .random { idx.shuffle() }
         order = idx
         pos = 0
+        warmAhead()
     }
 
     private func advance() {
         guard !order.isEmpty else { return }
-        withAnimation(.easeInOut(duration: 0.6)) {
+        withAnimation(anim) {
             pos += 1
             if pos >= order.count {
                 if store.slideshowMode == .random { buildOrder() } else { pos = 0 }
             }
+        }
+        warmAhead()
+    }
+
+    /// 预解码接下来 2 张写入缓存，切换时直接命中，过渡更顺、不闪。
+    private func warmAhead() {
+        let n = order.count
+        guard n > 0 else { return }
+        for k in 1...2 {
+            let p = (pos + k) % n
+            guard let idx = order[safe: p], let item = store.images[safe: idx] else { continue }
+            warm(item.url)
+        }
+    }
+
+    private func warm(_ url: URL) {
+        if ThumbCache.shared.get(url, 2200) != nil { return }
+        Task {
+            let img = await Task.detached(priority: .utility) {
+                PicLoader.image(url: url, maxPixel: 2200)
+            }.value
+            if let img { ThumbCache.shared.set(url, 2200, img) }
         }
     }
 }

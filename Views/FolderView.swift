@@ -9,7 +9,7 @@ struct FolderView: View {
     @State private var showSlideshow = false
     @State private var showSettings = false
 
-    private let columns = [GridItem(.adaptive(minimum: 108), spacing: 6)]
+    private let columns = [GridItem(.adaptive(minimum: 72), spacing: 3)]
 
     var body: some View {
         Group {
@@ -17,17 +17,17 @@ struct FolderView: View {
                 emptyText
             } else {
                 ScrollView {
-                    LazyVGrid(columns: columns, spacing: 6) {
+                    LazyVGrid(columns: columns, spacing: 3) {
                         ForEach(store.images) { item in
                             Button { selected = item } label: {
-                                AsyncThumb(url: item.url, maxPixel: 400)
+                                AsyncThumb(url: item.url, maxPixel: 300)
                                     .aspectRatio(1, contentMode: .fit)
-                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                                    .clipShape(RoundedRectangle(cornerRadius: 4))
                             }
                             .buttonStyle(.plain)
                         }
                     }
-                    .padding(6)
+                    .padding(3)
                 }
             }
         }
@@ -69,6 +69,13 @@ struct FolderView: View {
                 Section("每张停留") {
                     Picker("间隔", selection: $store.interval) {
                         ForEach(store.intervalChoices, id: \.self) { s in Text("\(Int(s)) 秒").tag(s) }
+                    }
+                    .pickerStyle(.inline)
+                    .labelsHidden()
+                }
+                Section("过渡效果") {
+                    Picker("过渡", selection: $store.transition) {
+                        ForEach(SlideTransition.allCases) { t in Text(t.label).tag(t) }
                     }
                     .pickerStyle(.inline)
                     .labelsHidden()

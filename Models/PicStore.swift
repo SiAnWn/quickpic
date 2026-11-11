@@ -9,6 +9,22 @@ enum SlideshowMode: String, CaseIterable, Identifiable {
     var label: String { self == .sequential ? "顺序播放" : "随机播放" }
 }
 
+enum SlideTransition: String, CaseIterable, Identifiable {
+    case fade
+    case slide
+    case zoom
+    case none
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .fade: return "淡入淡出"
+        case .slide: return "左右滑动"
+        case .zoom: return "缩放淡入"
+        case .none: return "直接切换"
+        }
+    }
+}
+
 /// 图片库：只读写 App 自己的 Documents 目录。列出其中的子文件夹作为分类，
 /// 进入某个文件夹列出其中的图片。幻灯片方式/间隔持久化。
 final class PicStore: ObservableObject {
@@ -18,6 +34,7 @@ final class PicStore: ObservableObject {
 
     @Published var slideshowMode: SlideshowMode = .random { didSet { saveSettings() } }
     @Published var interval: Double = 3.0 { didSet { saveSettings() } }
+    @Published var transition: SlideTransition = .fade { didSet { saveSettings() } }
 
     let intervalChoices: [Double] = [1, 2, 3, 5, 8]
 
@@ -36,7 +53,7 @@ final class PicStore: ObservableObject {
         return dir.appendingPathComponent("quickpic.json")
     }
 
-    private struct Settings: Codable { var mode: String; var interval: Double }
+    private struct Settings: Codable { var mode: String; var interval: Double; var transition: String }
 
     init() { loadSettings() }
 
@@ -45,11 +62,12 @@ final class PicStore: ObservableObject {
            let s = try? JSONDecoder().decode(Settings.self, from: data) {
             slideshowMode = SlideshowMode(rawValue: s.mode) ?? .random
             if intervalChoices.contains(s.interval) { interval = s.interval }
+            transition = SlideTransition(rawValue: s.transition) ?? .fade
         }
     }
 
     private func saveSettings() {
-        let s = Settings(mode: slideshowMode.rawValue, interval: interval)
+        let s = Settings(mode: slideshowMode.rawValue, interval: interval, transition: transition.rawValue)
         if let data = try? JSONEncoder().encode(s) { try? data.write(to: settingsURL) }
     }
 
