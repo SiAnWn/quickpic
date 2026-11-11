@@ -1,10 +1,11 @@
 import SwiftUI
 
-/// 首页：列出 App 目录下的图片分类文件夹（带封面）；可新建文件夹。
+/// 首页：列出图片分类文件夹（带封面）；可新建文件夹、切换主题。
 struct RootView: View {
     @EnvironmentObject private var store: PicStore
     @State private var showNew = false
     @State private var newName = ""
+    @State private var showTheme = false
 
     private let columns = [GridItem(.adaptive(minimum: 160), spacing: 14)]
 
@@ -28,13 +29,17 @@ struct RootView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.backgroundGradient.ignoresSafeArea())
+            .background(store.theme.backgroundGradient.ignoresSafeArea())
             .navigationTitle("QuickPic")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button { showTheme = true } label: {
+                        Image(systemName: "paintpalette").foregroundStyle(.white)
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button { showNew = true } label: {
-                        Image(systemName: "folder.badge.plus")
-                            .foregroundStyle(.white)
+                        Image(systemName: "folder.badge.plus").foregroundStyle(.white)
                     }
                 }
             }
@@ -50,7 +55,45 @@ struct RootView: View {
             } message: {
                 Text("将在 QuickPic 的目录里创建一个子文件夹，之后用「文件」App 往里面放图片。")
             }
+            .sheet(isPresented: $showTheme) { themeSheet }
         }
+        .tint(store.theme.accent)
+    }
+
+    // MARK: 主题选择
+
+    private var themeSheet: some View {
+        NavigationStack {
+            List {
+                ForEach(AppTheme.allCases) { t in
+                    Button { store.theme = t } label: {
+                        HStack(spacing: 14) {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(t.gradient)
+                                .frame(width: 46, height: 46)
+                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.white.opacity(0.15)))
+                            Text(t.label).foregroundStyle(.primary)
+                            Spacer()
+                            if store.theme == t {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(t.accent)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .navigationTitle("主题")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showTheme = false } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 
     // MARK: 文件夹卡片（封面 + 渐变遮罩 + 名称）
@@ -66,7 +109,7 @@ struct RootView: View {
                     .clipped()
             } else {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 14).fill(Theme.gradient.opacity(0.28))
+                    RoundedRectangle(cornerRadius: 14).fill(store.theme.gradient.opacity(0.28))
                     Image(systemName: "folder.fill")
                         .font(.system(size: 40))
                         .foregroundStyle(.white.opacity(0.92))
@@ -98,10 +141,10 @@ struct RootView: View {
     private var emptyState: some View {
         VStack(spacing: 18) {
             ZStack {
-                Circle().fill(Theme.gradient.opacity(0.16)).frame(width: 116, height: 116)
+                Circle().fill(store.theme.gradient.opacity(0.16)).frame(width: 116, height: 116)
                 Image(systemName: "photo.on.rectangle.angled")
                     .font(.system(size: 46))
-                    .foregroundStyle(Theme.gradient)
+                    .foregroundStyle(store.theme.gradient)
             }
             Text("还没有图片文件夹")
                 .font(.title2).bold()
@@ -113,7 +156,7 @@ struct RootView: View {
                 Label("新建文件夹", systemImage: "folder.badge.plus")
                     .font(.headline)
                     .padding(.horizontal, 20).padding(.vertical, 12)
-                    .background(Theme.gradient, in: Capsule())
+                    .background(store.theme.gradient, in: Capsule())
                     .foregroundStyle(.white)
             }
             .buttonStyle(.plain)

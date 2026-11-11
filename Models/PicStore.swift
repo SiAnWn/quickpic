@@ -35,6 +35,7 @@ final class PicStore: ObservableObject {
     @Published var slideshowMode: SlideshowMode = .random { didSet { saveSettings() } }
     @Published var interval: Double = 3.0 { didSet { saveSettings() } }
     @Published var transition: SlideTransition = .fade { didSet { saveSettings() } }
+    @Published var theme: AppTheme = .bluePink { didSet { saveSettings() } }
 
     let intervalChoices: [Double] = [1, 2, 3, 5, 8]
 
@@ -53,7 +54,7 @@ final class PicStore: ObservableObject {
         return dir.appendingPathComponent("quickpic.json")
     }
 
-    private struct Settings: Codable { var mode: String; var interval: Double; var transition: String }
+    private struct Settings: Codable { var mode: String; var interval: Double; var transition: String; var theme: String }
 
     init() { loadSettings() }
 
@@ -63,11 +64,12 @@ final class PicStore: ObservableObject {
             slideshowMode = SlideshowMode(rawValue: s.mode) ?? .random
             if intervalChoices.contains(s.interval) { interval = s.interval }
             transition = SlideTransition(rawValue: s.transition) ?? .fade
+            theme = AppTheme(rawValue: s.theme) ?? .bluePink
         }
     }
 
     private func saveSettings() {
-        let s = Settings(mode: slideshowMode.rawValue, interval: interval, transition: transition.rawValue)
+        let s = Settings(mode: slideshowMode.rawValue, interval: interval, transition: transition.rawValue, theme: theme.rawValue)
         if let data = try? JSONEncoder().encode(s) { try? data.write(to: settingsURL) }
     }
 

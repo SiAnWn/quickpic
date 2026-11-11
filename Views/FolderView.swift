@@ -112,10 +112,10 @@ struct FolderView: View {
     private var emptyText: some View {
         VStack(spacing: 16) {
             ZStack {
-                Circle().fill(Theme.gradient.opacity(0.14)).frame(width: 96, height: 96)
+                Circle().fill(store.theme.gradient.opacity(0.14)).frame(width: 96, height: 96)
                 Image(systemName: "photo.on.rectangle.angled")
                     .font(.system(size: 40))
-                    .foregroundStyle(Theme.gradient)
+                    .foregroundStyle(store.theme.gradient)
             }
             Text("这个文件夹还没有图片").font(.headline)
             Text("用「文件」App 把图片放进「\(folder.name)」，\n回到这里下拉即可刷新。")

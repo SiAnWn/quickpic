@@ -14,7 +14,6 @@ struct QuickPicApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(store)
-                .tint(Theme.accent)
                 .preferredColorScheme(.dark)
         }
     }
