@@ -2,12 +2,30 @@ import SwiftUI
 
 /// 某个分类文件夹：网格浏览图片；可打开幻灯片设置并开始播放。
 struct FolderView: View {
-    let folder: FolderInfo
+    let mode: PicMode
     @EnvironmentObject private var store: PicStore
 
     @State private var selected: ImageItem? = nil
     @State private var showSlideshow = false
     @State private var showSettings = false
+
+    private var isAll: Bool { if case .all = mode { return true }; return false }
+    private var folderName: String {
+        if case .folder(let f) = mode { return f.name }
+        return "全部"
+    }
+    private func load() {
+        switch mode {
+        case .all: store.openAll()
+        case .folder(let f): store.openFolder(f)
+        }
+    }
+    private func reload() {
+        switch mode {
+        case .all: store.openAll()
+        case .folder: store.refreshCurrent()
+        }
+    }
 
     var body: some View {
         Group {
@@ -38,7 +56,7 @@ struct FolderView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black.ignoresSafeArea())
-        .navigationTitle(folder.name)
+        .navigationTitle(folderName)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showSettings = true } label: {
@@ -46,8 +64,8 @@ struct FolderView: View {
                 }
             }
         }
-        .onAppear { store.openFolder(folder) }
-        .refreshable { store.refreshCurrent() }
+        .onAppear { load() }
+        .refreshable { reload() }
         .fullScreenCover(item: $selected) { item in
             let idx = store.images.firstIndex(where: { $0.id == item.id }) ?? 0
             ImageViewer(startIndex: idx)
@@ -117,8 +135,10 @@ struct FolderView: View {
                     .font(.system(size: 40))
                     .foregroundStyle(store.theme.gradient)
             }
-            Text("这个文件夹还没有图片").font(.headline)
-            Text("用「文件」App 把图片放进「\(folder.name)」，\n回到这里下拉即可刷新。")
+            Text(isAll ? "还没有任何图片" : "这个文件夹还没有图片").font(.headline)
+            Text(isAll
+                 ? "先用「文件」App 往各子文件夹里放图片，\n回到这里下拉即可刷新。"
+                 : "用「文件」App 把图片放进「\(folderName)」，\n回到这里下拉即可刷新。")
                 .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .padding(30)

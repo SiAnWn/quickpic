@@ -23,8 +23,12 @@ struct RootView: View {
                 } else {
                     ScrollView {
                         LazyVGrid(columns: columns, spacing: 14) {
+                            NavigationLink(value: PicMode.all) {
+                                allCard
+                            }
+                            .buttonStyle(.plain)
                             ForEach(store.folders) { folder in
-                                NavigationLink(value: folder) {
+                                NavigationLink(value: PicMode.folder(folder)) {
                                     folderCard(folder)
                                 }
                                 .buttonStyle(.plain)
@@ -49,8 +53,8 @@ struct RootView: View {
                     }
                 }
             }
-            .navigationDestination(for: FolderInfo.self) { folder in
-                FolderView(folder: folder)
+            .navigationDestination(for: PicMode.self) { mode in
+                FolderView(mode: mode)
             }
             .onAppear { store.scanFolders() }
             .refreshable { store.scanFolders() }
@@ -100,6 +104,29 @@ struct RootView: View {
             }
         }
         .presentationDetents([.medium])
+    }
+
+    // MARK: 「全部」卡片
+
+    private var allCard: some View {
+        ZStack(alignment: .bottomLeading) {
+            RoundedRectangle(cornerRadius: 14).fill(store.theme.gradient)
+            Image(systemName: "square.grid.3x3.fill")
+                .font(.system(size: 40))
+                .foregroundStyle(.white.opacity(0.95))
+                .frame(maxWidth: .infinity, maxHeight: 150)
+            LinearGradient(colors: [.clear, .black.opacity(0.5)],
+                           startPoint: .center, endPoint: .bottom)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("全部").font(.headline).foregroundStyle(.white)
+                Text("浏览所有图片").font(.caption).foregroundStyle(.white.opacity(0.85))
+            }
+            .padding(12)
+        }
+        .frame(height: 150)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(.white.opacity(0.12)))
+        .shadow(color: .black.opacity(0.35), radius: 6, y: 3)
     }
 
     // MARK: 文件夹卡片（封面 + 渐变遮罩 + 名称）

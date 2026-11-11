@@ -145,6 +145,39 @@ final class PicStore: ObservableObject {
         scanImages(in: folder.url)
     }
 
+    /// 汇总所有子文件夹的图片到一个列表（后台扫描）。
+    func openAll() {
+        currentFolder = nil
+        isScanning = true
+        let docs = documentsURL
+        Task.detached(priority: .userInitiated) { [weak self] in
+            let fm = FileManager.default
+            let dirKeys: [URLResourceKey] = [.isDirectoryKey]
+            let imgKeys: [URLResourceKey] = [.contentTypeKey, .isRegularFileKey]
+            var result: [ImageItem] = []
+            if let subs = try? fm.contentsOfDirectory(at: docs, includingPropertiesForKeys: dirKeys,
+                                                     options: [.skipsHiddenFiles]) {
+                for sub in subs where (try? sub.resourceValues(forKeys: Set(dirKeys)))?.isDirectory == true {
+                    if let items = try? fm.contentsOfDirectory(at: sub, includingPropertiesForKeys: imgKeys,
+                                                              options: [.skipsHiddenFiles]) {
+                        for url in items {
+                            let v = try? url.resourceValues(forKeys: Set(imgKeys))
+                            if v?.isRegularFile == true, Self.isImage(url, contentType: v?.contentType) {
+                                result.append(ImageItem(url: url,
+                                            name: url.deletingPathExtension().lastPathComponent))
+                            }
+                        }
+                    }
+                }
+            }
+            result.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            Task { @MainActor in
+                self?.images = result
+                self?.isScanning = false
+            }
+        }
+    }
+
     func scanImages(in dir: URL) {
         let keys: [URLResourceKey] = [.contentTypeKey, .isRegularFileKey]
         var result: [ImageItem] = []
