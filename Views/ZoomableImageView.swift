@@ -79,8 +79,8 @@ struct ZoomableImageView: UIViewRepresentable {
         @objc func onPan(_ g: UIPanGestureRecognizer) {
             guard g.state == .ended else { return }
             let t = g.translation(in: g.view)
-            if t.width < -60 { parent.onSwipe(1) }
-            else if t.width > 60 { parent.onSwipe(-1) }
+            if t.x < -60 { parent.onSwipe(1) }
+            else if t.x > 60 { parent.onSwipe(-1) }
         }
 
         // 只在"未缩放 + 横向为主"时接管滑动；放大后交回 scrollView 平移
